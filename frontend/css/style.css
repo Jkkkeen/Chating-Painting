@@ -1,0 +1,85 @@
+:root {
+  --bg: #1e1f24;
+  --panel: #2a2c33;
+  --canvas-bg: #ffffff;
+  --text: #e8e8ea;
+  --muted: #9aa0aa;
+  --accent: #4f8cff;
+  --dot-idle: #6b7280;
+  --dot-listening: #34d399;
+  --dot-paused: #fbbf24;
+  --dot-speaking: #60a5fa;
+  --border: #3a3d45;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* 顶部状态栏 */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.title { font-size: 18px; font-weight: 600; }
+
+.status { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dot-idle);
+  transition: background 0.2s;
+}
+.status-dot.listening { background: var(--dot-listening); box-shadow: 0 0 8px var(--dot-listening); }
+.status-dot.paused { background: var(--dot-paused); }
+.status-dot.speaking { background: var(--dot-speaking); box-shadow: 0 0 8px var(--dot-speaking); }
+
+/* 画布舞台 */
+.stage {
+  flex: 1;
+  display: flex;
+  padding: 16px;
+  min-height: 0;
+}
+
+#canvas {
+  flex: 1;
+  background: var(--canvas-bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  height: 100%;
+}
+
+/* 底部反馈区 */
+.feedback {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding: 12px 18px;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback .label { color: var(--muted); margin-right: 6px; }
+.heard-text { color: var(--text); }
+.reply-text { color: var(--accent); }

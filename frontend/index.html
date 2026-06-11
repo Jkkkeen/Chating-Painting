@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chating-Painting · 语音绘图工具</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- 顶部状态栏：显示语音模式与系统状态 -->
+  <header class="topbar">
+    <h1 class="title">🎨 Chating-Painting</h1>
+    <div class="status" id="status">
+      <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+      <span class="status-text" id="statusText">未启动</span>
+    </div>
+  </header>
+
+  <!-- 主画布区域 -->
+  <main class="stage">
+    <canvas id="canvas" aria-label="绘图画布"></canvas>
+  </main>
+
+  <!-- 底部反馈区：显示语音识别原文与系统提示 -->
+  <footer class="feedback">
+    <div class="heard">
+      <span class="label">听到：</span>
+      <span class="heard-text" id="heardText">—</span>
+    </div>
+    <div class="reply">
+      <span class="label">系统：</span>
+      <span class="reply-text" id="replyText">说「开始绘图」即可进入语音控制（功能将在后续版本接入）。</span>
+    </div>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
