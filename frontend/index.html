@@ -19,6 +19,20 @@
   <!-- 主画布区域 -->
   <main class="stage">
     <canvas id="canvas" aria-label="绘图画布"></canvas>
+
+    <!-- 启动遮罩：浏览器要求首次开启麦克风必须有一次用户手势。
+         这是整个应用唯一需要的手动操作，点击后即进入全程语音控制。 -->
+    <div class="overlay" id="startOverlay">
+      <div class="overlay-card">
+        <div class="overlay-icon">🎙️</div>
+        <h2>点击任意处，开启语音控制</h2>
+        <p class="overlay-hint">
+          浏览器要求首次使用麦克风需一次点击授权。<br />
+          之后全程用语音控制，无需再次点击。
+        </p>
+        <p class="overlay-browser">建议使用 Chrome / Edge 浏览器</p>
+      </div>
+    </div>
   </main>
 
   <!-- 底部反馈区：显示语音识别原文与系统提示 -->
@@ -29,11 +43,12 @@
     </div>
     <div class="reply">
       <span class="label">系统：</span>
-      <span class="reply-text" id="replyText">说「开始绘图」即可进入语音控制（功能将在后续版本接入）。</span>
+      <span class="reply-text" id="replyText">点击页面任意处即可开启语音识别。</span>
     </div>
   </footer>
 
   <script src="js/config.js"></script>
+  <script src="js/speech.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
