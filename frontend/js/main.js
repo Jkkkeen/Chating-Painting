@@ -6,8 +6,8 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持创建带颜色与方位的图形（在左上角画一个红色的圆）与属性修改。
- * 修改目标为选中或最近创建的图形。完整指代解析、编辑等将在后续 PR 扩展。
+ * 本 PR 支持对象指代与选择：选中红色的圆 / 选第二个 / 把最右边的方块改成蓝色。
+ * 指代命中多个时先给出提示，完整澄清对话将在后续 PR 接入。
  */
 (function () {
   "use strict";
@@ -138,13 +138,38 @@
   }
 
   /**
-   * 选取要修改的目标图形：优先当前选中，否则取最近创建。
-   * 完整指代解析（它/第二个/最右边）将在后续 PR 接入。
+   * 根据指代描述符解析目标图形。
+   * 返回 { shape, ambiguous, candidates, reason }。
+   * 完整的歧义澄清对话在 PR9 接入，本 PR 命中多个时先给出提示。
    */
-  function targetShape() {
-    const sel = store.getSelected();
-    if (sel.length === 1) return sel[0];
-    return store.last();
+  function resolveTarget(ref) {
+    if (!ref) {
+      // 无指代：选中优先，否则最近创建
+      const sel = store.getSelected();
+      if (sel.length === 1) return { shape: sel[0] };
+      const last = store.last();
+      return { shape: last || null };
+    }
+    const res = window.Reference.resolve(ref, store);
+    if (res.shapes.length === 1) return { shape: res.shapes[0], reason: res.reason };
+    if (res.shapes.length > 1)
+      return { shape: null, ambiguous: true, candidates: res.shapes };
+    return { shape: null, reason: "none" };
+  }
+
+  /** 把图形描述成中文短语，用于语音反馈 */
+  function describeShape(s) {
+    if (!s) return "图形";
+    if (s.type === "text") return "文字「" + s.text + "」";
+    const colorName = colorNameOf(s.color);
+    return (colorName ? colorName : "") + (SHAPE_NAME[s.type] || "图形");
+  }
+
+  function colorNameOf(hex) {
+    for (const name in window.Colors.HEX) {
+      if (window.Colors.HEX[name] === hex) return COLOR_NAME[name] || "";
+    }
+    return "";
   }
 
   function describeChanges(changes) {
@@ -163,7 +188,7 @@
     const cmd = window.Parser.parse(text);
 
     if (!cmd) {
-      voiceMode.announce("没听清，可以说：画一个红色的圆，或者改成蓝色");
+      voiceMode.announce("没听清，可以说：画一个红色的圆，或者选中红色的圆");
       return;
     }
 
@@ -189,16 +214,44 @@
       return;
     }
 
+    if (cmd.action === "select") {
+      const res = window.Reference.resolve(cmd.ref, store);
+      if (res.shapes.length === 0) {
+        voiceMode.announce("没有找到符合的图形");
+        return;
+      }
+      if (res.shapes.length > 1) {
+        voiceMode.announce(
+          "符合的图形有" + res.shapes.length + "个，可以说第几个，或加上颜色区分"
+        );
+        return;
+      }
+      store.select(res.shapes[0].id);
+      render();
+      voiceMode.announce("已选中" + describeShape(res.shapes[0]));
+      return;
+    }
+
     if (cmd.action === "modify") {
-      const target = targetShape();
-      if (!target) {
+      if (store.count() === 0) {
         voiceMode.announce("还没有图形可以修改，请先画一个");
         return;
       }
-      store.applyChanges(target, cmd.changes);
+      const t = resolveTarget(cmd.ref);
+      if (t.ambiguous) {
+        voiceMode.announce(
+          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
+        );
+        return;
+      }
+      if (!t.shape) {
+        voiceMode.announce("没有找到要修改的图形");
+        return;
+      }
+      store.applyChanges(t.shape, cmd.changes);
       render();
       const summary = describeChanges(cmd.changes);
-      voiceMode.announce(summary ? "已" + summary : "已修改");
+      voiceMode.announce(summary ? "已把" + describeShape(t.shape) + summary : "已修改");
       return;
     }
 
@@ -287,5 +340,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR6：方位指令已就绪。试试「在左上角画一个红色的圆」「画在中间」。");
+  console.info("[Chating-Painting] PR7：对象指代与选择已就绪。试试「选中红色的圆」「把第二个圆改成蓝色」。");
 })();
