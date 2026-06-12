@@ -1,13 +1,13 @@
 /**
- * main.js — 应用入口（PR3：语音模式状态机）
+ * main.js — 应用入口（PR4：基本图形绘制）
  *
  * 当前职责：
- *   1. 初始化画布（高 DPI 缩放、窗口自适应、空画布占位）。
+ *   1. 初始化画布（高 DPI 缩放、窗口自适应），用绘图引擎渲染 store 中的图形。
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
- *   3. 把识别文本接入语音状态机（开始/暂停/继续），由状态机裁决是否执行。
- *   4. 状态机通过 TTS 播报反馈，播报期间屏蔽识别输入（防自我触发）。
+ *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 指令解析与绘图引擎将在后续 PR 接入；普通绘图指令此处先做占位反馈。
+ * 本 PR 支持创建圆 / 矩形 / 直线 / 文字（默认颜色与居中错位摆放）。
+ * 颜色、大小、位置、编辑、选择等将在后续 PR 扩展。
  */
 (function () {
   "use strict";
@@ -20,6 +20,14 @@
   const replyText = document.getElementById("replyText");
   const startOverlay = document.getElementById("startOverlay");
 
+  // ---- 数据模型与绘图引擎 ----
+  const store = window.Store.createStore();
+
+  function canvasSize() {
+    const rect = canvas.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }
+
   // ---- 画布 ----
   function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
@@ -31,17 +39,8 @@
   }
 
   function render() {
-    const rect = canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    ctx.fillStyle = "#c8ccd4";
-    ctx.font = "16px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(
-      "空白画布 · 说「开始绘图」进入绘图模式",
-      rect.width / 2,
-      rect.height / 2
-    );
+    const bg = (window.APP_CONFIG && window.APP_CONFIG.canvasBackground) || "#ffffff";
+    window.Drawing.renderAll(ctx, canvasSize(), store.all(), bg);
   }
 
   // ---- 状态与反馈显示 ----
@@ -84,14 +83,66 @@
       setStatus(label.dot, label.text);
     },
     onCommand: function (text) {
-      // PR3 阶段：普通绘图指令暂未接入解析器，先做占位反馈。
-      // 指令解析与绘图将在后续 PR 实现。
-      voiceMode.announce("收到指令：" + text + "，绘图功能即将上线");
+      executeCommand(text);
     },
     onUndoLast: function () {
       // 「撤销刚才」的实际撤销逻辑在后续 PR（撤销/重做）落地
     },
   });
+
+  // ---- 指令执行：解析 → 改动 store → 重绘 → 反馈 ----
+
+  const SHAPE_NAME = { circle: "圆", rect: "矩形", line: "直线", text: "文字" };
+
+  /**
+   * 为新图形计算默认几何。新图形以画布中心为基准，按已有数量做轻微错位，
+   * 避免完全重叠。颜色/大小/精确位置将在后续 PR 由指令控制。
+   */
+  function defaultGeometry(type) {
+    const size = canvasSize();
+    const cx = size.width / 2;
+    const cy = size.height / 2;
+    const n = store.count();
+    const offset = (n % 6) * 28; // 阶梯式错位
+    const ox = cx + offset - 70;
+    const oy = cy + offset - 70;
+
+    switch (type) {
+      case "circle":
+        return { x: ox, y: oy, w: 120, h: 120 };
+      case "rect":
+        return { x: ox - 70, y: oy - 45, w: 140, h: 90 };
+      case "line":
+        return { x: ox - 80, y: oy, w: 160, h: 0 };
+      case "text":
+        return { x: ox - 40, y: oy };
+      default:
+        return { x: ox, y: oy, w: 100, h: 100 };
+    }
+  }
+
+  function executeCommand(text) {
+    const cmd = window.Parser.parse(text);
+
+    if (!cmd) {
+      voiceMode.announce("没听清，可以说：画一个圆，或者画矩形");
+      return;
+    }
+
+    if (cmd.action === "create") {
+      const geo = defaultGeometry(cmd.type);
+      const shape = store.add(
+        Object.assign({ type: cmd.type }, geo, cmd.type === "text" ? { text: cmd.text } : {})
+      );
+      render();
+      const name = SHAPE_NAME[cmd.type] || "图形";
+      const desc = cmd.type === "text" ? "文字「" + shape.text + "」" : "一个" + name;
+      voiceMode.announce("好的，已画" + desc);
+      return;
+    }
+
+    voiceMode.announce("这个指令暂时还不支持");
+  }
 
   // ---- 语音识别接入 ----
   let recognizer = null;
@@ -160,11 +211,20 @@
   startOverlay.addEventListener("click", handleStart, { once: true });
 
   // 暴露给后续模块的接口
-  window.App = { canvas, ctx, render, setStatus, showHeard, showReply, voiceMode };
+  window.App = {
+    canvas,
+    ctx,
+    render,
+    setStatus,
+    showHeard,
+    showReply,
+    voiceMode,
+    store,
+  };
 
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR3：语音状态机已就绪。点击页面后说「开始绘图」。");
+  console.info("[Chating-Painting] PR4：基本图形绘制已就绪。说「开始绘图」后试试「画一个圆」。");
 })();
