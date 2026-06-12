@@ -58,6 +58,7 @@ body {
   display: flex;
   padding: 16px;
   min-height: 0;
+  position: relative;
 }
 
 #canvas {
@@ -82,4 +83,30 @@ body {
 
 .feedback .label { color: var(--muted); margin-right: 6px; }
 .heard-text { color: var(--text); }
+.heard-text.interim { color: var(--muted); font-style: italic; }
 .reply-text { color: var(--accent); }
+
+/* 启动遮罩 */
+.overlay {
+  position: absolute;
+  inset: 16px;
+  border-radius: 8px;
+  background: rgba(20, 21, 26, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: opacity 0.25s;
+}
+.overlay.hidden { opacity: 0; pointer-events: none; }
+
+.overlay-card { text-align: center; max-width: 420px; padding: 24px; }
+.overlay-icon { font-size: 56px; margin-bottom: 12px; }
+.overlay-card h2 { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+.overlay-hint { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.overlay-browser {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--dot-paused);
+}
