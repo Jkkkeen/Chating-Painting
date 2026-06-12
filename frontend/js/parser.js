@@ -1,13 +1,14 @@
 /**
  * parser.js — 指令解析器（规则引擎 · 快路径）
  *
- * 把一句中文识别文本解析成结构化命令对象。本 PR 只覆盖「创建基本图形」：
- *   画圆 / 画矩形 / 画线 / 写字
- * 颜色、大小、位置、编辑等将在后续 PR 逐步扩展本解析器。
+ * 把一句中文识别文本解析成结构化命令对象。本 PR 覆盖：
+ *   - 创建基本图形：画圆 / 画矩形 / 画线 / 写字（可带颜色，如「画一个红色的圆」）
+ *   - 修改属性：改成蓝色 / 大一点 / 小一点 / 线条粗一点 / 细一点 / 填充 / 只描边
  *
  * 返回命令对象：
- *   { action: 'create', type: 'circle'|'rect'|'line'|'text', text?: string }
- *   解析不出则返回 null（后续将交给澄清机制 / LLM 兜底）。
+ *   创建: { action: 'create', type, color?: hex, text?: string }
+ *   修改: { action: 'modify', changes: { color?, scale?, lineWidthDelta?, filled? } }
+ *   解析不出则返回 null。
  */
 (function () {
   "use strict";
@@ -59,6 +60,51 @@
   const DRAW_VERB = /(画|绘制|添加|加|来|放)/;
   const WRITE_VERB = /(写字|写下|写上|写个|写|输入|打字)/;
 
+  /** 检测属性修改意图，返回 changes 对象或 null */
+  function detectModify(t) {
+    const changes = {};
+    let matched = false;
+
+    // 改色：改成/变成/换成 + 颜色，或单独出现颜色 + 「色」类修改语境由上层判断
+    if (/(改成|变成|换成|改为|变为|涂成|填成)/.test(t)) {
+      const color = window.Colors && window.Colors.detect(t);
+      if (color) {
+        changes.color = color.hex;
+        changes.colorName = color.name;
+        matched = true;
+      }
+    }
+
+    // 大小：大一点/放大/变大；小一点/缩小/变小
+    if (/(大一点|大一些|大点|放大|变大|更大|大大)/.test(t)) {
+      changes.scale = 1.3;
+      matched = true;
+    } else if (/(小一点|小一些|小点|缩小|变小|更小)/.test(t)) {
+      changes.scale = 1 / 1.3;
+      matched = true;
+    }
+
+    // 线宽：粗一点/加粗；细一点/变细
+    if (/(粗一点|粗一些|加粗|变粗|更粗|粗点)/.test(t)) {
+      changes.lineWidthDelta = 2;
+      matched = true;
+    } else if (/(细一点|细一些|变细|更细|细点)/.test(t)) {
+      changes.lineWidthDelta = -2;
+      matched = true;
+    }
+
+    // 填充 / 描边
+    if (/(填充|实心|涂满)/.test(t)) {
+      changes.filled = true;
+      matched = true;
+    } else if (/(描边|只描边|空心|轮廓|不填充)/.test(t)) {
+      changes.filled = false;
+      matched = true;
+    }
+
+    return matched ? changes : null;
+  }
+
   function parse(text) {
     const t = normalize(text);
     if (!t) return null;
@@ -71,15 +117,39 @@
       }
     }
 
-    // 2) 创建图形：只要识别到形状名即接受。
-    //    即使用户漏说「画」（如直接说「圆」「矩形」），也能容错创建。
     const shape = detectShape(t);
+    const hasDrawVerb = DRAW_VERB.test(t);
+
+    // 2) 明确创建：有绘制动词 + 形状名 → 创建（可带颜色）
+    //    放在修改之前，保证「画一条线」不被「线」误判。
+    if (hasDrawVerb && shape) {
+      return buildCreate(shape, t);
+    }
+
+    // 3) 修改属性：针对已有（选中/最近）图形。
+    //    放在「无动词形状词」之前，保证「线条粗一点」判为改线宽而非画线。
+    const changes = detectModify(t);
+    if (changes) {
+      return { action: "modify", changes: changes };
+    }
+
+    // 4) 容错创建：没说「画」但只说了形状名（如「圆」「矩形」）
     if (shape) {
-      return { action: "create", type: shape };
+      return buildCreate(shape, t);
     }
 
     return null;
   }
 
-  window.Parser = { parse, detectShape, detectText, DRAW_VERB };
+  function buildCreate(shape, t) {
+    const cmd = { action: "create", type: shape };
+    const color = window.Colors && window.Colors.detect(t);
+    if (color) {
+      cmd.color = color.hex;
+      cmd.colorName = color.name;
+    }
+    return cmd;
+  }
+
+  window.Parser = { parse, detectShape, detectText, detectModify, DRAW_VERB };
 })();
