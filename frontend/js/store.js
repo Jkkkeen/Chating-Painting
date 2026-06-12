@@ -113,6 +113,34 @@
       return shapes.filter((s) => s.selected);
     }
 
+    /**
+     * 把一组属性变更应用到指定图形。
+     * changes 支持：color、filled、scale（缩放尺寸）、lineWidthDelta（线宽增量）。
+     * @returns {object|null} 被修改的图形
+     */
+    function applyChanges(shape, changes) {
+      if (!shape || !changes) return null;
+
+      if (typeof changes.color === "string") shape.color = changes.color;
+      if (typeof changes.filled === "boolean") shape.filled = changes.filled;
+
+      if (typeof changes.scale === "number" && changes.scale > 0) {
+        const k = changes.scale;
+        if (shape.type === "text") {
+          shape.fontSize = Math.max(8, Math.round(shape.fontSize * k));
+        } else {
+          shape.w = shape.w * k;
+          shape.h = shape.h * k;
+        }
+      }
+
+      if (typeof changes.lineWidthDelta === "number") {
+        shape.lineWidth = Math.max(1, shape.lineWidth + changes.lineWidthDelta);
+      }
+
+      return shape;
+    }
+
     return {
       DEFAULTS,
       add,
@@ -125,6 +153,7 @@
       clearSelection,
       select,
       getSelected,
+      applyChanges,
     };
   }
 

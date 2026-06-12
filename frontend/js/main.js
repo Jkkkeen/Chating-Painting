@@ -6,8 +6,9 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持创建圆 / 矩形 / 直线 / 文字（默认颜色与居中错位摆放）。
- * 颜色、大小、位置、编辑、选择等将在后续 PR 扩展。
+ * 本 PR 支持创建带颜色的图形（画一个红色的圆）与属性修改
+ * （改成蓝色 / 大一点 / 线条粗一点 / 填充 / 描边）。修改目标为选中或最近创建的图形。
+ * 精确位置、完整指代解析、编辑等将在后续 PR 扩展。
  */
 (function () {
   "use strict";
@@ -93,10 +94,15 @@
   // ---- 指令执行：解析 → 改动 store → 重绘 → 反馈 ----
 
   const SHAPE_NAME = { circle: "圆", rect: "矩形", line: "直线", text: "文字" };
+  const COLOR_NAME = {
+    red: "红色", orange: "橙色", yellow: "黄色", green: "绿色",
+    cyan: "青色", blue: "蓝色", purple: "紫色", pink: "粉色",
+    brown: "棕色", black: "黑色", white: "白色", gray: "灰色",
+  };
 
   /**
    * 为新图形计算默认几何。新图形以画布中心为基准，按已有数量做轻微错位，
-   * 避免完全重叠。颜色/大小/精确位置将在后续 PR 由指令控制。
+   * 避免完全重叠。大小/精确位置将在后续 PR 由指令控制。
    */
   function defaultGeometry(type) {
     const size = canvasSize();
@@ -121,23 +127,63 @@
     }
   }
 
+  /**
+   * 选取要修改的目标图形：优先当前选中，否则取最近创建。
+   * 完整指代解析（它/第二个/最右边）将在后续 PR 接入。
+   */
+  function targetShape() {
+    const sel = store.getSelected();
+    if (sel.length === 1) return sel[0];
+    return store.last();
+  }
+
+  function describeChanges(changes) {
+    const parts = [];
+    if (changes.color) parts.push("颜色改为" + (COLOR_NAME[changes.colorName] || "新颜色"));
+    if (changes.scale && changes.scale > 1) parts.push("放大");
+    if (changes.scale && changes.scale < 1) parts.push("缩小");
+    if (changes.lineWidthDelta > 0) parts.push("线条加粗");
+    if (changes.lineWidthDelta < 0) parts.push("线条变细");
+    if (changes.filled === true) parts.push("改为填充");
+    if (changes.filled === false) parts.push("改为描边");
+    return parts.join("，");
+  }
+
   function executeCommand(text) {
     const cmd = window.Parser.parse(text);
 
     if (!cmd) {
-      voiceMode.announce("没听清，可以说：画一个圆，或者画矩形");
+      voiceMode.announce("没听清，可以说：画一个红色的圆，或者改成蓝色");
       return;
     }
 
     if (cmd.action === "create") {
       const geo = defaultGeometry(cmd.type);
-      const shape = store.add(
-        Object.assign({ type: cmd.type }, geo, cmd.type === "text" ? { text: cmd.text } : {})
-      );
+      const extra = {};
+      if (cmd.color) extra.color = cmd.color;
+      if (cmd.type === "text") extra.text = cmd.text;
+      const shape = store.add(Object.assign({ type: cmd.type }, geo, extra));
       render();
       const name = SHAPE_NAME[cmd.type] || "图形";
-      const desc = cmd.type === "text" ? "文字「" + shape.text + "」" : "一个" + name;
+      const colorPrefix = cmd.colorName ? (COLOR_NAME[cmd.colorName] || "") : "";
+      const desc =
+        cmd.type === "text"
+          ? "文字「" + shape.text + "」"
+          : "一个" + colorPrefix + name;
       voiceMode.announce("好的，已画" + desc);
+      return;
+    }
+
+    if (cmd.action === "modify") {
+      const target = targetShape();
+      if (!target) {
+        voiceMode.announce("还没有图形可以修改，请先画一个");
+        return;
+      }
+      store.applyChanges(target, cmd.changes);
+      render();
+      const summary = describeChanges(cmd.changes);
+      voiceMode.announce(summary ? "已" + summary : "已修改");
       return;
     }
 
@@ -226,5 +272,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR4：基本图形绘制已就绪。说「开始绘图」后试试「画一个圆」。");
+  console.info("[Chating-Painting] PR5：颜色与属性已就绪。试试「画一个红色的圆」「改成蓝色」「大一点」。");
 })();
