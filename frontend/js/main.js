@@ -6,9 +6,8 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持创建带颜色的图形（画一个红色的圆）与属性修改
- * （改成蓝色 / 大一点 / 线条粗一点 / 填充 / 描边）。修改目标为选中或最近创建的图形。
- * 精确位置、完整指代解析、编辑等将在后续 PR 扩展。
+ * 本 PR 支持创建带颜色与方位的图形（在左上角画一个红色的圆）与属性修改。
+ * 修改目标为选中或最近创建的图形。完整指代解析、编辑等将在后续 PR 扩展。
  */
 (function () {
   "use strict";
@@ -101,30 +100,41 @@
   };
 
   /**
-   * 为新图形计算默认几何。新图形以画布中心为基准，按已有数量做轻微错位，
-   * 避免完全重叠。大小/精确位置将在后续 PR 由指令控制。
+   * 给定中心点，返回某类型图形的几何。circle/rect 以 (cx,cy) 为中心，
+   * line 以其为中点，text 以其为大致中心（左端据宽度回退）。
+   */
+  function geometryAt(type, cx, cy) {
+    switch (type) {
+      case "circle":
+        return { x: cx, y: cy, w: 120, h: 120 };
+      case "rect":
+        return { x: cx - 70, y: cy - 45, w: 140, h: 90 };
+      case "line":
+        return { x: cx - 80, y: cy, w: 160, h: 0 };
+      case "text":
+        return { x: cx - 40, y: cy };
+      default:
+        return { x: cx, y: cy, w: 100, h: 100 };
+    }
+  }
+
+  /**
+   * 默认几何：以画布中心为基准，按已有数量阶梯错位，避免完全重叠。
    */
   function defaultGeometry(type) {
     const size = canvasSize();
-    const cx = size.width / 2;
-    const cy = size.height / 2;
     const n = store.count();
-    const offset = (n % 6) * 28; // 阶梯式错位
-    const ox = cx + offset - 70;
-    const oy = cy + offset - 70;
+    const offset = (n % 6) * 28;
+    return geometryAt(type, size.width / 2 + offset, size.height / 2 + offset);
+  }
 
-    switch (type) {
-      case "circle":
-        return { x: ox, y: oy, w: 120, h: 120 };
-      case "rect":
-        return { x: ox - 70, y: oy - 45, w: 140, h: 90 };
-      case "line":
-        return { x: ox - 80, y: oy, w: 160, h: 0 };
-      case "text":
-        return { x: ox - 40, y: oy };
-      default:
-        return { x: ox, y: oy, w: 100, h: 100 };
-    }
+  /**
+   * 方位几何：把图形放到九宫格指定区域的中心。
+   */
+  function positionedGeometry(type, posKey) {
+    const size = canvasSize();
+    const c = window.Position.regionCenter(posKey, size);
+    return geometryAt(type, c.cx, c.cy);
   }
 
   /**
@@ -158,7 +168,9 @@
     }
 
     if (cmd.action === "create") {
-      const geo = defaultGeometry(cmd.type);
+      const geo = cmd.position
+        ? positionedGeometry(cmd.type, cmd.position)
+        : defaultGeometry(cmd.type);
       const extra = {};
       if (cmd.color) extra.color = cmd.color;
       if (cmd.type === "text") extra.text = cmd.text;
@@ -166,11 +178,14 @@
       render();
       const name = SHAPE_NAME[cmd.type] || "图形";
       const colorPrefix = cmd.colorName ? (COLOR_NAME[cmd.colorName] || "") : "";
+      const posSuffix = cmd.position
+        ? "在" + (window.Position.LABEL[cmd.position] || "")
+        : "";
       const desc =
         cmd.type === "text"
           ? "文字「" + shape.text + "」"
           : "一个" + colorPrefix + name;
-      voiceMode.announce("好的，已画" + desc);
+      voiceMode.announce("好的，已" + posSuffix + "画" + desc);
       return;
     }
 
@@ -272,5 +287,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR5：颜色与属性已就绪。试试「画一个红色的圆」「改成蓝色」「大一点」。");
+  console.info("[Chating-Painting] PR6：方位指令已就绪。试试「在左上角画一个红色的圆」「画在中间」。");
 })();

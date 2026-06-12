@@ -2,11 +2,11 @@
  * parser.js — 指令解析器（规则引擎 · 快路径）
  *
  * 把一句中文识别文本解析成结构化命令对象。本 PR 覆盖：
- *   - 创建基本图形：画圆 / 画矩形 / 画线 / 写字（可带颜色，如「画一个红色的圆」）
+ *   - 创建基本图形：画圆 / 画矩形 / 画线 / 写字（可带颜色与方位，如「在左上角画一个红色的圆」）
  *   - 修改属性：改成蓝色 / 大一点 / 小一点 / 线条粗一点 / 细一点 / 填充 / 只描边
  *
  * 返回命令对象：
- *   创建: { action: 'create', type, color?: hex, text?: string }
+ *   创建: { action: 'create', type, color?: hex, position?: key, text?: string }
  *   修改: { action: 'modify', changes: { color?, scale?, lineWidthDelta?, filled? } }
  *   解析不出则返回 null。
  */
@@ -147,6 +147,10 @@
     if (color) {
       cmd.color = color.hex;
       cmd.colorName = color.name;
+    }
+    const pos = window.Position && window.Position.detect(t);
+    if (pos) {
+      cmd.position = pos;
     }
     return cmd;
   }
