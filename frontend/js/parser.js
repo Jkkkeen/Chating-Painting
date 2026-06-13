@@ -7,7 +7,8 @@
  *
  * 返回命令对象：
  *   创建: { action: 'create', type, color?: hex, position?: key, text?: string }
- *   修改: { action: 'modify', changes: { color?, scale?, lineWidthDelta?, filled? } }
+ *   选择: { action: 'select', ref: <指代描述符> }
+ *   修改: { action: 'modify', changes: {...}, ref?: <指代描述符> }
  *   解析不出则返回 null。
  */
 (function () {
@@ -59,6 +60,8 @@
   // 是否包含绘制动作词
   const DRAW_VERB = /(画|绘制|添加|加|来|放)/;
   const WRITE_VERB = /(写字|写下|写上|写个|写|输入|打字)/;
+  // 选择动作词
+  const SELECT_VERB = /(选中|选择|选取|选定|选)/;
 
   /** 检测属性修改意图，返回 changes 对象或 null */
   function detectModify(t) {
@@ -120,20 +123,29 @@
     const shape = detectShape(t);
     const hasDrawVerb = DRAW_VERB.test(t);
 
-    // 2) 明确创建：有绘制动词 + 形状名 → 创建（可带颜色）
-    //    放在修改之前，保证「画一条线」不被「线」误判。
+    // 2) 明确创建：有绘制动词 + 形状名 → 创建（可带颜色/方位）
+    //    放在修改/选择之前，保证「画一条线」不被「线」误判。
     if (hasDrawVerb && shape) {
       return buildCreate(shape, t);
     }
 
-    // 3) 修改属性：针对已有（选中/最近）图形。
+    // 3) 选择：含「选中/选择/选」动词 → 解析指代描述符
+    if (SELECT_VERB.test(t)) {
+      const ref = window.Reference && window.Reference.parseRef(t);
+      if (ref) return { action: "select", ref: ref };
+    }
+
+    // 4) 修改属性：可带指代（把红色的圆改成蓝色）。
     //    放在「无动词形状词」之前，保证「线条粗一点」判为改线宽而非画线。
     const changes = detectModify(t);
     if (changes) {
-      return { action: "modify", changes: changes };
+      const cmd = { action: "modify", changes: changes };
+      const ref = window.Reference && window.Reference.parseRef(t);
+      if (ref) cmd.ref = ref;
+      return cmd;
     }
 
-    // 4) 容错创建：没说「画」但只说了形状名（如「圆」「矩形」）
+    // 5) 容错创建：没说「画」但只说了形状名（如「圆」「矩形」）
     if (shape) {
       return buildCreate(shape, t);
     }
