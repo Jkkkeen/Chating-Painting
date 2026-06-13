@@ -9,6 +9,9 @@
  *   创建: { action: 'create', type, color?: hex, position?: key, text?: string }
  *   选择: { action: 'select', ref: <指代描述符> }
  *   修改: { action: 'modify', changes: {...}, ref?: <指代描述符> }
+ *   移动: { action: 'move', delta: {dx, dy}, ref?: <指代描述符> }
+ *   删除: { action: 'delete', ref?: <指代描述符> }
+ *   复制: { action: 'copy', ref?: <指代描述符> }
  *   解析不出则返回 null。
  */
 (function () {
@@ -62,6 +65,9 @@
   const WRITE_VERB = /(写字|写下|写上|写个|写|输入|打字)/;
   // 选择动作词
   const SELECT_VERB = /(选中|选择|选取|选定|选)/;
+  const DELETE_VERB = /(删除|删掉|删去|删|移除|去掉|擦掉)/;
+  const COPY_VERB = /(复制|拷贝|克隆|再来一个|再来一份|再复制|复制一份)/;
+  const MOVE_VERB = /(移动|移到|挪动|挪|平移|向[上下左右]移|往[上下左右]移|上移|下移|左移|右移)/;
 
   /** 检测属性修改意图，返回 changes 对象或 null */
   function detectModify(t) {
@@ -108,6 +114,38 @@
     return matched ? changes : null;
   }
 
+  function detectMove(t) {
+    if (!MOVE_VERB.test(t)) return null;
+
+    const dir = detectDirection(t);
+    if (!dir) return null;
+
+    const step = detectMoveStep(t);
+    return { dx: dir.dx * step, dy: dir.dy * step };
+  }
+
+  function detectDirection(t) {
+    const directions = [
+      { dx: 1, dy: 0, words: ["向右", "往右", "朝右", "右移", "右移动", "往右边"] },
+      { dx: -1, dy: 0, words: ["向左", "往左", "朝左", "左移", "左移动", "往左边"] },
+      { dx: 0, dy: -1, words: ["向上", "往上", "朝上", "上移", "上移动", "往上面"] },
+      { dx: 0, dy: 1, words: ["向下", "往下", "朝下", "下移", "下移动", "往下面"] },
+    ];
+
+    for (const d of directions) {
+      for (const w of d.words) {
+        if (t.indexOf(w) >= 0) return { dx: d.dx, dy: d.dy };
+      }
+    }
+    return null;
+  }
+
+  function detectMoveStep(t) {
+    if (/(一点|一些|小一点|小步|稍微|轻轻|少一点)/.test(t)) return 20;
+    if (/(远一点|多一点|大步|多移|移动多点|远些)/.test(t)) return 80;
+    return 40;
+  }
+
   function parse(text) {
     const t = normalize(text);
     if (!t) return null;
@@ -129,13 +167,36 @@
       return buildCreate(shape, t);
     }
 
-    // 3) 选择：含「选中/选择/选」动词 → 解析指代描述符
+    // 3) 编辑：移动 / 删除 / 复制，可带 PR7 的指代描述符。
+    const moveDelta = detectMove(t);
+    if (moveDelta) {
+      const cmd = { action: "move", delta: moveDelta };
+      const ref = window.Reference && window.Reference.parseRef(t);
+      if (ref) cmd.ref = ref;
+      return cmd;
+    }
+
+    if (DELETE_VERB.test(t)) {
+      const cmd = { action: "delete" };
+      const ref = window.Reference && window.Reference.parseRef(t);
+      if (ref) cmd.ref = ref;
+      return cmd;
+    }
+
+    if (COPY_VERB.test(t)) {
+      const cmd = { action: "copy" };
+      const ref = window.Reference && window.Reference.parseRef(t);
+      if (ref) cmd.ref = ref;
+      return cmd;
+    }
+
+    // 4) 选择：含「选中/选择/选」动词 → 解析指代描述符
     if (SELECT_VERB.test(t)) {
       const ref = window.Reference && window.Reference.parseRef(t);
       if (ref) return { action: "select", ref: ref };
     }
 
-    // 4) 修改属性：可带指代（把红色的圆改成蓝色）。
+    // 5) 修改属性：可带指代（把红色的圆改成蓝色）。
     //    放在「无动词形状词」之前，保证「线条粗一点」判为改线宽而非画线。
     const changes = detectModify(t);
     if (changes) {
@@ -145,7 +206,7 @@
       return cmd;
     }
 
-    // 5) 容错创建：没说「画」但只说了形状名（如「圆」「矩形」）
+    // 6) 容错创建：没说「画」但只说了形状名（如「圆」「矩形」）
     if (shape) {
       return buildCreate(shape, t);
     }
@@ -167,5 +228,12 @@
     return cmd;
   }
 
-  window.Parser = { parse, detectShape, detectText, detectModify, DRAW_VERB };
+  window.Parser = {
+    parse,
+    detectShape,
+    detectText,
+    detectModify,
+    detectMove,
+    DRAW_VERB,
+  };
 })();
