@@ -14,6 +14,7 @@
  *   复制: { action: 'copy', ref?: <指代描述符> }
  *   确认: { action: 'confirm' } / 取消: { action: 'cancel' }
  *   清空: { action: 'clearCanvas', destructive: true }
+ *   撤销/重做: { action: 'undo' } / { action: 'redo' }
  *   解析不出则返回 null。
  */
 (function () {
@@ -73,6 +74,8 @@
   const CONFIRM_REPLY = /^(确认|确定|是的|对|好|好的|可以)$/;
   const CANCEL_REPLY = /(取消|不用|不要|算了|停止|别|不确认)/;
   const CLEAR_CANVAS = /(清空|清除|清理|全部删除|全部删掉|删光|擦掉全部).*(画布|全部|所有|所有图形)|^(清空画布|清除画布)$/;
+  const UNDO_CMD = /^(撤销|撤回|回退|后悔)(刚才|刚刚|上一步|一下)?$/;
+  const REDO_CMD = /^(重做|恢复上一步|恢复刚才|再做一次|重来刚才)$/;
 
   /** 检测属性修改意图，返回 changes 对象或 null */
   function detectModify(t) {
@@ -157,6 +160,8 @@
 
     if (CONFIRM_REPLY.test(t)) return { action: "confirm" };
     if (CANCEL_REPLY.test(t)) return { action: "cancel" };
+    if (UNDO_CMD.test(t)) return { action: "undo" };
+    if (REDO_CMD.test(t)) return { action: "redo" };
 
     if (CLEAR_CANVAS.test(t)) {
       return { action: "clearCanvas", destructive: true };

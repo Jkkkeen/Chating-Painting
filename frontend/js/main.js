@@ -6,7 +6,7 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持确认与澄清：歧义目标可追问第几个，清空画布需要二次确认。
+ * 本 PR 支持撤销/重做：所有图形变更进入历史栈，清空画布继续二次确认。
  */
 (function () {
   "use strict";
@@ -21,6 +21,8 @@
 
   // ---- 数据模型与绘图引擎 ----
   const store = window.Store.createStore();
+  const history = window.History.create(store);
+  history.capture();
 
   function canvasSize() {
     const rect = canvas.getBoundingClientRect();
@@ -85,7 +87,8 @@
       executeCommand(text);
     },
     onUndoLast: function () {
-      // 「撤销刚才」的实际撤销逻辑在后续 PR（撤销/重做）落地
+      undoLast();
+      return true;
     },
   });
 
@@ -136,7 +139,6 @@
     return geometryAt(type, c.cx, c.cy);
   }
 
-  /**
   /** 根据指代描述符解析目标图形。返回 { shape, ambiguous, candidates, reason }。 */
   function resolveTarget(ref) {
     if (!ref) {
@@ -184,6 +186,30 @@
     describeCandidate: describeShape,
   });
 
+  function commitHistory(label) {
+    history.commit(label);
+  }
+
+  function undoLast() {
+    const result = history.undo();
+    if (!result.ok) {
+      voiceMode.announce("没有可以撤销的操作");
+      return;
+    }
+    render();
+    voiceMode.announce("已撤销" + result.label);
+  }
+
+  function redoLast() {
+    const result = history.redo();
+    if (!result.ok) {
+      voiceMode.announce("没有可以重做的操作");
+      return;
+    }
+    render();
+    voiceMode.announce("已重做" + result.label);
+  }
+
   function executeWithTarget(cmd, shape) {
     if (!cmd || !shape) {
       voiceMode.announce("没有找到要操作的图形");
@@ -199,6 +225,7 @@
 
     if (cmd.action === "modify") {
       store.applyChanges(shape, cmd.changes);
+      commitHistory("修改" + describeShape(shape));
       render();
       const summary = describeChanges(cmd.changes);
       voiceMode.announce(summary ? "已把" + describeShape(shape) + summary : "已修改");
@@ -208,6 +235,7 @@
     if (cmd.action === "move") {
       window.Editor.move(shape, cmd.delta);
       store.select(shape.id);
+      commitHistory("移动" + describeShape(shape));
       render();
       voiceMode.announce(
         "已把" + describeShape(shape) + window.Editor.describeMove(cmd.delta)
@@ -217,6 +245,7 @@
 
     if (cmd.action === "delete") {
       const removed = window.Editor.remove(store, shape);
+      commitHistory("删除" + describeShape(removed));
       render();
       voiceMode.announce("已删除" + describeShape(removed));
       return;
@@ -224,6 +253,7 @@
 
     if (cmd.action === "copy") {
       const copied = window.Editor.copy(store, shape);
+      commitHistory("复制" + describeShape(copied));
       render();
       voiceMode.announce("已复制" + describeShape(copied));
       return;
@@ -235,6 +265,7 @@
   function executeConfirmed(cmd) {
     if (cmd && cmd.action === "clearCanvas") {
       store.clear();
+      commitHistory("清空画布");
       render();
       voiceMode.announce("已清空画布");
       return;
@@ -281,6 +312,16 @@
       return;
     }
 
+    if (cmd.action === "undo") {
+      undoLast();
+      return;
+    }
+
+    if (cmd.action === "redo") {
+      redoLast();
+      return;
+    }
+
     if (cmd.action === "clearCanvas") {
       if (store.count() === 0) {
         voiceMode.announce("画布已经是空的");
@@ -300,6 +341,7 @@
       if (cmd.color) extra.color = cmd.color;
       if (cmd.type === "text") extra.text = cmd.text;
       const shape = store.add(Object.assign({ type: cmd.type }, geo, extra));
+      commitHistory("绘制" + describeShape(shape));
       render();
       const name = SHAPE_NAME[cmd.type] || "图形";
       const colorPrefix = cmd.colorName ? (COLOR_NAME[cmd.colorName] || "") : "";
@@ -479,11 +521,12 @@
     showReply,
     voiceMode,
     store,
+    history,
   };
 
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR9：确认与澄清已就绪。试试「删除红色的」后说「第二个」。");
+  console.info("[Chating-Painting] PR10：撤销/重做已就绪。试试「撤销」「重做」「清空画布」。");
 })();
