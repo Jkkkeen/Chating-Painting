@@ -6,7 +6,7 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持对象指代与选择：选中红色的圆 / 选第二个 / 把最右边的方块改成蓝色。
+ * 本 PR 支持编辑图形：把圆向右移 / 删除它 / 复制最右边的圆。
  * 指代命中多个时先给出提示，完整澄清对话将在后续 PR 接入。
  */
 (function () {
@@ -255,6 +255,75 @@
       return;
     }
 
+    if (cmd.action === "move") {
+      if (store.count() === 0) {
+        voiceMode.announce("还没有图形可以移动，请先画一个");
+        return;
+      }
+      const t = resolveTarget(cmd.ref);
+      if (t.ambiguous) {
+        voiceMode.announce(
+          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
+        );
+        return;
+      }
+      if (!t.shape) {
+        voiceMode.announce("没有找到要移动的图形");
+        return;
+      }
+      window.Editor.move(t.shape, cmd.delta);
+      store.select(t.shape.id);
+      render();
+      voiceMode.announce(
+        "已把" + describeShape(t.shape) + window.Editor.describeMove(cmd.delta)
+      );
+      return;
+    }
+
+    if (cmd.action === "delete") {
+      if (store.count() === 0) {
+        voiceMode.announce("还没有图形可以删除，请先画一个");
+        return;
+      }
+      const t = resolveTarget(cmd.ref);
+      if (t.ambiguous) {
+        voiceMode.announce(
+          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
+        );
+        return;
+      }
+      if (!t.shape) {
+        voiceMode.announce("没有找到要删除的图形");
+        return;
+      }
+      const removed = window.Editor.remove(store, t.shape);
+      render();
+      voiceMode.announce("已删除" + describeShape(removed));
+      return;
+    }
+
+    if (cmd.action === "copy") {
+      if (store.count() === 0) {
+        voiceMode.announce("还没有图形可以复制，请先画一个");
+        return;
+      }
+      const t = resolveTarget(cmd.ref);
+      if (t.ambiguous) {
+        voiceMode.announce(
+          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
+        );
+        return;
+      }
+      if (!t.shape) {
+        voiceMode.announce("没有找到要复制的图形");
+        return;
+      }
+      const copied = window.Editor.copy(store, t.shape);
+      render();
+      voiceMode.announce("已复制" + describeShape(copied));
+      return;
+    }
+
     voiceMode.announce("这个指令暂时还不支持");
   }
 
@@ -340,5 +409,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR7：对象指代与选择已就绪。试试「选中红色的圆」「把第二个圆改成蓝色」。");
+  console.info("[Chating-Painting] PR8：编辑指令已就绪。试试「把圆向右移」「删除它」「复制一份」。");
 })();
