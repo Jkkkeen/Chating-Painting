@@ -59,6 +59,12 @@ test("normalizes export image command JSON", () => {
   });
 });
 
+test("normalizes help command JSON", () => {
+  assert.deepStrictEqual(normalizeCommand({ action: "help" }), {
+    action: "help",
+  });
+});
+
 test("parses model JSON content into a normalized command", () => {
   const command = parseModelContent(
     JSON.stringify({

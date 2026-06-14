@@ -15,6 +15,7 @@
  *   确认: { action: 'confirm' } / 取消: { action: 'cancel' }
  *   清空: { action: 'clearCanvas', destructive: true }
  *   导出: { action: 'exportImage' }
+ *   帮助: { action: 'help' }
  *   撤销/重做: { action: 'undo' } / { action: 'redo' }
  *   解析不出则返回 null。
  */
@@ -79,6 +80,7 @@
   const CANCEL_REPLY = /(取消|不用|不要|算了|停止|别|不确认)/;
   const CLEAR_CANVAS = /(清空|清除|清理|全部删除|全部删掉|删光|擦掉全部).*(画布|全部|所有|所有图形)|^(清空画布|清除画布)$/;
   const EXPORT_IMAGE = /(保存|导出|下载).*(图片|图像|画布|作品)|^(保存图片|导出图片|下载图片|保存画布|下载画布)$/;
+  const HELP_CMD = /^(帮助|语音帮助|使用帮助|我能说什么|能说什么|有哪些指令|有什么指令|指令列表|命令列表)$/;
   const UNDO_CMD = /^(撤销|撤回|回退|后悔)(刚才|刚刚|上一步|一下)?$/;
   const REDO_CMD = /^(重做|恢复上一步|恢复刚才|再做一次|重来刚才)$/;
 
@@ -182,6 +184,7 @@
     if (UNDO_CMD.test(t)) return { action: "undo" };
     if (REDO_CMD.test(t)) return { action: "redo" };
     if (EXPORT_IMAGE.test(t)) return { action: "exportImage" };
+    if (HELP_CMD.test(t)) return { action: "help" };
 
     if (CLEAR_CANVAS.test(t)) {
       return { action: "clearCanvas", destructive: true };
