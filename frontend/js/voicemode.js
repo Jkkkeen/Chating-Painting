@@ -46,10 +46,10 @@
   /**
    * 创建状态机。
    * @param {{
-   *   speak: (text:string, onDone?:Function)=>void,   // 调用 TTS 播报
-   *   onState: (state:string)=>void,                  // 状态变化通知（更新 UI）
-   *   onCommand: (text:string)=>void,                 // 非模式指令，交给上层解析（后续 PR）
-   *   onUndoLast?: ()=>void                            // 「撤销刚才」回调（后续 PR 落地）
+ *   speak: (text:string, onDone?:Function)=>void,   // 调用 TTS 播报
+ *   onState: (state:string)=>void,                  // 状态变化通知（更新 UI）
+ *   onCommand: (text:string)=>void,                 // 非模式指令，交给上层解析（后续 PR）
+ *   onUndoLast?: ()=>boolean|void                    // 「撤销刚才」回调，返回 true 表示已自行反馈
    * }} deps
    */
   function create(deps) {
@@ -92,8 +92,8 @@
       // 「撤销刚才」任意活动状态下可用
       if (intent === "undoLast") {
         if (state === STATES.IDLE) return;
-        if (deps.onUndoLast) deps.onUndoLast();
-        announce("已撤销刚才的操作");
+        const handled = deps.onUndoLast && deps.onUndoLast();
+        if (!handled) announce("已撤销刚才的操作");
         return;
       }
 

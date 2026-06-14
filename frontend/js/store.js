@@ -71,6 +71,27 @@
       return shapes.slice();
     }
 
+    function cloneShape(shape) {
+      return JSON.parse(JSON.stringify(shape));
+    }
+
+    function snapshot() {
+      return shapes.map(cloneShape);
+    }
+
+    function syncCounters() {
+      seq = shapes.reduce((max, s) => Math.max(max, s.createdOrder || 0), 0);
+      idCounter = shapes.reduce((max, s) => {
+        const m = /^s(\d+)$/.exec(s.id || "");
+        return m ? Math.max(max, Number(m[1])) : max;
+      }, 0);
+    }
+
+    function replaceAll(nextShapes) {
+      shapes = (nextShapes || []).map(cloneShape);
+      syncCounters();
+    }
+
     function count() {
       return shapes.length;
     }
@@ -145,6 +166,8 @@
       DEFAULTS,
       add,
       all,
+      snapshot,
+      replaceAll,
       count,
       getById,
       last,
