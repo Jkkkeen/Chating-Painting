@@ -12,6 +12,8 @@
  *   移动: { action: 'move', delta: {dx, dy}, ref?: <指代描述符> }
  *   删除: { action: 'delete', ref?: <指代描述符> }
  *   复制: { action: 'copy', ref?: <指代描述符> }
+ *   确认: { action: 'confirm' } / 取消: { action: 'cancel' }
+ *   清空: { action: 'clearCanvas', destructive: true }
  *   解析不出则返回 null。
  */
 (function () {
@@ -68,6 +70,9 @@
   const DELETE_VERB = /(删除|删掉|删去|删|移除|去掉|擦掉)/;
   const COPY_VERB = /(复制|拷贝|克隆|再来一个|再来一份|再复制|复制一份)/;
   const MOVE_VERB = /(移动|移到|挪动|挪|平移|向[上下左右]移|往[上下左右]移|上移|下移|左移|右移)/;
+  const CONFIRM_REPLY = /^(确认|确定|是的|对|好|好的|可以)$/;
+  const CANCEL_REPLY = /(取消|不用|不要|算了|停止|别|不确认)/;
+  const CLEAR_CANVAS = /(清空|清除|清理|全部删除|全部删掉|删光|擦掉全部).*(画布|全部|所有|所有图形)|^(清空画布|清除画布)$/;
 
   /** 检测属性修改意图，返回 changes 对象或 null */
   function detectModify(t) {
@@ -149,6 +154,13 @@
   function parse(text) {
     const t = normalize(text);
     if (!t) return null;
+
+    if (CONFIRM_REPLY.test(t)) return { action: "confirm" };
+    if (CANCEL_REPLY.test(t)) return { action: "cancel" };
+
+    if (CLEAR_CANVAS.test(t)) {
+      return { action: "clearCanvas", destructive: true };
+    }
 
     // 1) 文字优先：含「写/输入」类动词
     if (WRITE_VERB.test(t)) {
