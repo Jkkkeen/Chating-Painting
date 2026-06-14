@@ -2,6 +2,8 @@
 
 > 一款**纯语音控制**的绘图工具：用户全程不使用鼠标或键盘，仅通过语音指令完成绘图创作。
 
+> Demo 视频：[Bilibili 演示视频](https://www.bilibili.com/video/BV1wzJK6zE1N?buvid=YE4355E11FC0941B4EBC8AAE993F55E80BE5&is_story_h5=false&mid=zVWVxn07LwMrBjEMNxjj1g%3D%3D&plat_id=116&share_from=ugc&share_medium=iphone&share_plat=ios&share_source=weixin&share_tag=s_i&timestamp=1781452219&unique_k=iDuZ108&up_id=1050054085)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 这是什么
@@ -10,7 +12,7 @@ Chating-Painting 让你用嘴画画。说「画一个红色的圆」「把它移
 「保存为图片」或「我能说什么」，应用就把语音变成画布上的图形、导出作品或播报帮助。设计上重点解决四个问题：指令理解的**准确性与容错**、
 语音到绘图的**响应延迟**、**复杂指令的拆解执行**，以及纯语音交互的**健壮性**（防止讲解被误识别为命令）。
 
-> 当前进度：项目以细粒度 PR 持续开发中，本版本（PR15）已支持基础绘图、编辑、历史、复合指令、增强模式、导出图片与语音帮助。
+> 当前进度：项目以细粒度 PR 完成核心功能迭代，本版本（PR16）已补充 README、设计文档与 demo 视频链接。
 > 完整指令能力请见 [`docs/设计文档.md`](docs/设计文档.md) 的实现状态表。
 
 ## 双模式
@@ -92,7 +94,7 @@ Chating-Painting/
 
 ## Demo 视频
 
-> 将在功能完善后补充（B 站 / 云盘链接）。
+- [Bilibili 演示视频](https://www.bilibili.com/video/BV1wzJK6zE1N?buvid=YE4355E11FC0941B4EBC8AAE993F55E80BE5&is_story_h5=false&mid=zVWVxn07LwMrBjEMNxjj1g%3D%3D&plat_id=116&share_from=ugc&share_medium=iphone&share_plat=ios&share_source=weixin&share_tag=s_i&timestamp=1781452219&unique_k=iDuZ108&up_id=1050054085)
 
 ## 许可
 
