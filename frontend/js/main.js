@@ -6,7 +6,7 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持导出图片：语音说「保存为图片 / 导出图片」即可下载 PNG。
+ * 本 PR 支持语音帮助：说「我能说什么」即可听到常用指令示例。
  */
 (function () {
   "use strict";
@@ -318,7 +318,7 @@
 
   function executeParsedCommand(cmd) {
     if (!cmd) {
-      voiceMode.announce("没听清，可以说：画一个红色的圆，或者选中红色的圆");
+      voiceMode.announce("没听清，可以说：画一个红色的圆，或者说我能说什么");
       return;
     }
 
@@ -335,6 +335,14 @@
 
     if (cmd.action === "confirm" || cmd.action === "cancel") {
       voiceMode.announce("当前没有需要确认的操作");
+      return;
+    }
+
+    if (cmd.action === "help") {
+      const text = window.Help
+        ? window.Help.summary()
+        : "可以说：画一个红色的圆，把它向右移动一点，保存为图片。";
+      voiceMode.announce(text);
       return;
     }
 
@@ -585,5 +593,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR14：图片导出已就绪。试试「保存为图片」。");
+  console.info("[Chating-Painting] PR15：语音帮助已就绪。试试「我能说什么」。");
 })();

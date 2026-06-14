@@ -160,6 +160,7 @@ function normalizeCommand(input, depth) {
 
   if (action === "clearCanvas") return { action: "clearCanvas", destructive: true };
   if (action === "exportImage") return { action: "exportImage" };
+  if (action === "help") return { action: "help" };
   if (action === "undo") return { action: "undo" };
   if (action === "redo") return { action: "redo" };
   if (action === "confirm") return { action: "confirm" };
@@ -173,7 +174,7 @@ function buildChatRequest(text, options) {
   const system = [
     "你是 Chating-Painting 的中文语音绘图指令解析器。",
     "只输出一个 json 对象，不要输出 markdown 或解释。",
-    "允许的 action：create, select, modify, move, delete, copy, clearCanvas, exportImage, undo, redo, confirm, cancel, sequence。",
+    "允许的 action：create, select, modify, move, delete, copy, clearCanvas, exportImage, help, undo, redo, confirm, cancel, sequence。",
     "形状 type 只能是 circle, rect, line, text。",
     "颜色 colorName 只能是 red, orange, yellow, green, cyan, blue, purple, pink, brown, black, white, gray。",
     "位置 position 只能是 topleft, top, topright, left, center, right, bottomleft, bottom, bottomright。",
@@ -181,6 +182,7 @@ function buildChatRequest(text, options) {
     "指代 ref 可包含 pronoun, type, color, ordinal, spatial。spatial 只能是 leftmost, rightmost, topmost, bottommost。",
     "复合指令返回 {\"action\":\"sequence\",\"commands\":[...]}。",
     "保存、导出、下载当前画布图片时返回 {\"action\":\"exportImage\"}。",
+    "询问帮助、能说什么、有哪些指令时返回 {\"action\":\"help\"}。",
     "示例 json：{\"action\":\"create\",\"type\":\"rect\",\"colorName\":\"blue\",\"position\":\"left\"}",
   ].join("\n");
 
