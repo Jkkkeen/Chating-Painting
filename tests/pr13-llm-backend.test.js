@@ -53,6 +53,12 @@ test("normalizes supported command JSON and rejects unsafe actions", () => {
   assert.strictEqual(normalizeCommand({ action: "openUrl", url: "https://example.com" }), null);
 });
 
+test("normalizes export image command JSON", () => {
+  assert.deepStrictEqual(normalizeCommand({ action: "exportImage" }), {
+    action: "exportImage",
+  });
+});
+
 test("parses model JSON content into a normalized command", () => {
   const command = parseModelContent(
     JSON.stringify({
