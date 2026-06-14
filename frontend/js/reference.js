@@ -42,6 +42,10 @@
   ];
 
   function detectOrdinal(t) {
+    if (window.Corrector) {
+      const n = window.Corrector.detectOrdinal(t);
+      if (n) return n;
+    }
     for (const o of ORDINAL_WORDS) {
       for (const w of o.words) if (t.indexOf(w) >= 0) return o.n;
     }
@@ -63,7 +67,10 @@
 
   /** 从文本抽取指代描述符；若没有任何指代线索返回 null */
   function parseRef(text) {
-    const t = (text || "").replace(/\s/g, "");
+    const corrected = window.Corrector
+      ? window.Corrector.normalizeText(text)
+      : text;
+    const t = (corrected || "").replace(/\s/g, "");
     const desc = {};
 
     if (PRONOUN.test(t)) desc.pronoun = true;
