@@ -340,8 +340,24 @@
       const extra = {};
       if (cmd.color) extra.color = cmd.color;
       if (cmd.type === "text") extra.text = cmd.text;
-      const shape = store.add(Object.assign({ type: cmd.type }, geo, extra));
-      commitHistory("绘制" + describeShape(shape));
+      const count = Math.max(1, cmd.count || 1);
+      const created = [];
+      for (let i = 0; i < count; i++) {
+        const offset = i * 26;
+        const shape = store.add(
+          Object.assign(
+            { type: cmd.type },
+            geo,
+            extra,
+            {
+              x: typeof geo.x === "number" ? geo.x + offset : geo.x,
+              y: typeof geo.y === "number" ? geo.y + offset : geo.y,
+            }
+          )
+        );
+        created.push(shape);
+      }
+      commitHistory("绘制" + describeShape(created[created.length - 1]));
       render();
       const name = SHAPE_NAME[cmd.type] || "图形";
       const colorPrefix = cmd.colorName ? (COLOR_NAME[cmd.colorName] || "") : "";
@@ -350,8 +366,8 @@
         : "";
       const desc =
         cmd.type === "text"
-          ? "文字「" + shape.text + "」"
-          : "一个" + colorPrefix + name;
+          ? "文字「" + created[0].text + "」"
+          : (count > 1 ? count + "个" : "一个") + colorPrefix + name;
       voiceMode.announce("好的，已" + posSuffix + "画" + desc);
       return;
     }

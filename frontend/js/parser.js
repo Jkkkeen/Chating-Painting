@@ -28,7 +28,10 @@
   ];
 
   function normalize(text) {
-    return (text || "").trim().replace(/[\s]/g, "");
+    const corrected = window.Corrector
+      ? window.Corrector.normalizeText(text)
+      : text;
+    return (corrected || "").trim().replace(/[\s]/g, "");
   }
 
   /** 从文本中找出形状类型（取最先出现、词更长优先的匹配） */
@@ -241,6 +244,10 @@
     const pos = window.Position && window.Position.detect(t);
     if (pos) {
       cmd.position = pos;
+    }
+    const count = window.Corrector && window.Corrector.detectCount(t);
+    if (count && count > 1) {
+      cmd.count = count;
     }
     return cmd;
   }
