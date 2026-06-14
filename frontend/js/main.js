@@ -6,7 +6,7 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持增强模式：本地规则解析失败时，可选调用 Node LLM 兜底。
+ * 本 PR 支持导出图片：语音说「保存为图片 / 导出图片」即可下载 PNG。
  */
 (function () {
   "use strict";
@@ -348,6 +348,21 @@
       return;
     }
 
+    if (cmd.action === "exportImage") {
+      if (!window.Exporter) {
+        voiceMode.announce("当前浏览器暂时不能导出图片");
+        return;
+      }
+      window.Exporter.downloadCanvas(canvas).then(function (result) {
+        if (result && result.ok) {
+          voiceMode.announce("已导出图片");
+        } else {
+          voiceMode.announce("导出图片失败，请稍后再试");
+        }
+      });
+      return;
+    }
+
     if (cmd.action === "clearCanvas") {
       if (store.count() === 0) {
         voiceMode.announce("画布已经是空的");
@@ -570,5 +585,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR13：增强模式 LLM 兜底已接入。默认仍使用本地规则引擎。");
+  console.info("[Chating-Painting] PR14：图片导出已就绪。试试「保存为图片」。");
 })();
