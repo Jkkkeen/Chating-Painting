@@ -6,8 +6,7 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持编辑图形：把圆向右移 / 删除它 / 复制最右边的圆。
- * 指代命中多个时先给出提示，完整澄清对话将在后续 PR 接入。
+ * 本 PR 支持确认与澄清：歧义目标可追问第几个，清空画布需要二次确认。
  */
 (function () {
   "use strict";
@@ -138,10 +137,7 @@
   }
 
   /**
-   * 根据指代描述符解析目标图形。
-   * 返回 { shape, ambiguous, candidates, reason }。
-   * 完整的歧义澄清对话在 PR9 接入，本 PR 命中多个时先给出提示。
-   */
+  /** 根据指代描述符解析目标图形。返回 { shape, ambiguous, candidates, reason }。 */
   function resolveTarget(ref) {
     if (!ref) {
       // 无指代：选中优先，否则最近创建
@@ -184,11 +180,115 @@
     return parts.join("，");
   }
 
+  const clarifier = window.Clarifier.create({
+    describeCandidate: describeShape,
+  });
+
+  function executeWithTarget(cmd, shape) {
+    if (!cmd || !shape) {
+      voiceMode.announce("没有找到要操作的图形");
+      return;
+    }
+
+    if (cmd.action === "select") {
+      store.select(shape.id);
+      render();
+      voiceMode.announce("已选中" + describeShape(shape));
+      return;
+    }
+
+    if (cmd.action === "modify") {
+      store.applyChanges(shape, cmd.changes);
+      render();
+      const summary = describeChanges(cmd.changes);
+      voiceMode.announce(summary ? "已把" + describeShape(shape) + summary : "已修改");
+      return;
+    }
+
+    if (cmd.action === "move") {
+      window.Editor.move(shape, cmd.delta);
+      store.select(shape.id);
+      render();
+      voiceMode.announce(
+        "已把" + describeShape(shape) + window.Editor.describeMove(cmd.delta)
+      );
+      return;
+    }
+
+    if (cmd.action === "delete") {
+      const removed = window.Editor.remove(store, shape);
+      render();
+      voiceMode.announce("已删除" + describeShape(removed));
+      return;
+    }
+
+    if (cmd.action === "copy") {
+      const copied = window.Editor.copy(store, shape);
+      render();
+      voiceMode.announce("已复制" + describeShape(copied));
+      return;
+    }
+
+    voiceMode.announce("这个澄清结果暂时不能执行");
+  }
+
+  function executeConfirmed(cmd) {
+    if (cmd && cmd.action === "clearCanvas") {
+      store.clear();
+      render();
+      voiceMode.announce("已清空画布");
+      return;
+    }
+    voiceMode.announce("已确认");
+  }
+
+  function handleClarifierResult(result) {
+    if (!result || result.type === "none") return false;
+
+    if (result.type === "resolved") {
+      executeWithTarget(result.command, result.shape);
+      return true;
+    }
+    if (result.type === "confirmed") {
+      executeConfirmed(result.command);
+      return true;
+    }
+    if (result.type === "cancelled" || result.type === "waiting") {
+      voiceMode.announce(result.message);
+      return true;
+    }
+    return false;
+  }
+
+  function askAmbiguous(cmd, candidates) {
+    voiceMode.announce(clarifier.askAmbiguous(cmd, candidates));
+  }
+
   function executeCommand(text) {
+    if (clarifier.hasPending()) {
+      if (handleClarifierResult(clarifier.handle(text))) return;
+    }
+
     const cmd = window.Parser.parse(text);
 
     if (!cmd) {
       voiceMode.announce("没听清，可以说：画一个红色的圆，或者选中红色的圆");
+      return;
+    }
+
+    if (cmd.action === "confirm" || cmd.action === "cancel") {
+      voiceMode.announce("当前没有需要确认的操作");
+      return;
+    }
+
+    if (cmd.action === "clearCanvas") {
+      if (store.count() === 0) {
+        voiceMode.announce("画布已经是空的");
+        return;
+      }
+      voiceMode.announce(
+        clarifier.askConfirm(cmd, "确定要清空画布吗？请说确认或取消。")
+      );
       return;
     }
 
@@ -221,14 +321,10 @@
         return;
       }
       if (res.shapes.length > 1) {
-        voiceMode.announce(
-          "符合的图形有" + res.shapes.length + "个，可以说第几个，或加上颜色区分"
-        );
+        askAmbiguous(cmd, res.shapes);
         return;
       }
-      store.select(res.shapes[0].id);
-      render();
-      voiceMode.announce("已选中" + describeShape(res.shapes[0]));
+      executeWithTarget(cmd, res.shapes[0]);
       return;
     }
 
@@ -239,19 +335,14 @@
       }
       const t = resolveTarget(cmd.ref);
       if (t.ambiguous) {
-        voiceMode.announce(
-          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
-        );
+        askAmbiguous(cmd, t.candidates);
         return;
       }
       if (!t.shape) {
         voiceMode.announce("没有找到要修改的图形");
         return;
       }
-      store.applyChanges(t.shape, cmd.changes);
-      render();
-      const summary = describeChanges(cmd.changes);
-      voiceMode.announce(summary ? "已把" + describeShape(t.shape) + summary : "已修改");
+      executeWithTarget(cmd, t.shape);
       return;
     }
 
@@ -262,21 +353,14 @@
       }
       const t = resolveTarget(cmd.ref);
       if (t.ambiguous) {
-        voiceMode.announce(
-          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
-        );
+        askAmbiguous(cmd, t.candidates);
         return;
       }
       if (!t.shape) {
         voiceMode.announce("没有找到要移动的图形");
         return;
       }
-      window.Editor.move(t.shape, cmd.delta);
-      store.select(t.shape.id);
-      render();
-      voiceMode.announce(
-        "已把" + describeShape(t.shape) + window.Editor.describeMove(cmd.delta)
-      );
+      executeWithTarget(cmd, t.shape);
       return;
     }
 
@@ -287,18 +371,14 @@
       }
       const t = resolveTarget(cmd.ref);
       if (t.ambiguous) {
-        voiceMode.announce(
-          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
-        );
+        askAmbiguous(cmd, t.candidates);
         return;
       }
       if (!t.shape) {
         voiceMode.announce("没有找到要删除的图形");
         return;
       }
-      const removed = window.Editor.remove(store, t.shape);
-      render();
-      voiceMode.announce("已删除" + describeShape(removed));
+      executeWithTarget(cmd, t.shape);
       return;
     }
 
@@ -309,18 +389,14 @@
       }
       const t = resolveTarget(cmd.ref);
       if (t.ambiguous) {
-        voiceMode.announce(
-          "有" + t.candidates.length + "个符合的图形，请说得更具体，比如第几个"
-        );
+        askAmbiguous(cmd, t.candidates);
         return;
       }
       if (!t.shape) {
         voiceMode.announce("没有找到要复制的图形");
         return;
       }
-      const copied = window.Editor.copy(store, t.shape);
-      render();
-      voiceMode.announce("已复制" + describeShape(copied));
+      executeWithTarget(cmd, t.shape);
       return;
     }
 
@@ -409,5 +485,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR8：编辑指令已就绪。试试「把圆向右移」「删除它」「复制一份」。");
+  console.info("[Chating-Painting] PR9：确认与澄清已就绪。试试「删除红色的」后说「第二个」。");
 })();
