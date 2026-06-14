@@ -36,6 +36,29 @@ Chating-Painting 让你用嘴画画。说「画一个红色的圆」「把它移
 > 后续接入语音识别后，浏览器多要求在 `https` 或 `localhost` 环境下才允许使用麦克风，
 > 故推荐用本地服务器方式打开。
 
+## 运行方式（增强模式）
+
+增强模式只在本地规则解析失败时调用 Node 后端，由后端使用 DeepSeek API 解析复杂自然语言。
+真实 API key 不要写进代码，也不要提交到仓库。
+
+1. 准备本地环境变量：
+   ```bash
+   copy backend\.env.example backend\.env
+   ```
+   然后在 `backend/.env` 中填写自己的 `DEEPSEEK_API_KEY`。
+
+2. 启动后端：
+   ```bash
+   node backend/server.js
+   ```
+
+3. 本地联调时把 `frontend/js/config.js` 里的 `backendUrl` 临时设为：
+   ```js
+   backendUrl: "http://localhost:8787",
+   ```
+
+`.env` 与 `backend/.env` 已被 `.gitignore` 忽略，提交前请确认不要把真实 key 放入任何 tracked 文件。
+
 ## 浏览器要求
 
 本应用依赖浏览器原生的 **Web Speech API**。该 API 的 `SpeechRecognition` 在 MDN 上标注为
@@ -55,7 +78,7 @@ Chating-Painting/
 │   ├── index.html
 │   ├── css/style.css
 │   └── js/{config,main}.js
-├── backend/             # 增强模式：Node LLM 代理（后续 PR 接入）
+├── backend/             # 增强模式：Node LLM 代理（可选启动）
 ├── docs/设计文档.md       # 计划支持 / 已实现 / 未完成原因
 └── README.md
 ```
@@ -64,7 +87,8 @@ Chating-Painting/
 
 - **核心模式**：无任何第三方运行时依赖，仅使用浏览器原生能力
   （Web Speech API、Canvas）。所有指令解析、容错、绘图逻辑均为原创实现。
-- **增强模式**：将依赖 Node.js 运行时与 LLM SDK，具体依赖会在接入对应 PR 时在此列明。
+- **增强模式**：依赖 Node.js 18+ 运行时，使用内置 `fetch` 调用 DeepSeek OpenAI-compatible API，
+  不引入第三方 SDK。API key 通过 `DEEPSEEK_API_KEY` 环境变量提供。
 
 ## Demo 视频
 
