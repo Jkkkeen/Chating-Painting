@@ -6,7 +6,7 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持撤销/重做：所有图形变更进入历史栈，清空画布继续二次确认。
+ * 本 PR 支持复合指令：然后 / 再 / 接着 串联的命令会按顺序执行。
  */
 (function () {
   "use strict";
@@ -300,10 +300,23 @@
       if (handleClarifierResult(clarifier.handle(text))) return;
     }
 
-    const cmd = window.Parser.parse(text);
+    executeParsedCommand(window.Parser.parse(text));
+  }
 
+  function executeParsedCommand(cmd) {
     if (!cmd) {
       voiceMode.announce("没听清，可以说：画一个红色的圆，或者选中红色的圆");
+      return;
+    }
+
+    if (cmd.action === "sequence") {
+      let executed = 0;
+      for (let i = 0; i < cmd.commands.length; i++) {
+        executeParsedCommand(cmd.commands[i]);
+        executed += 1;
+        if (clarifier.hasPending()) return;
+      }
+      showReply("已执行" + executed + "步复合指令");
       return;
     }
 
@@ -544,5 +557,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR10：撤销/重做已就绪。试试「撤销」「重做」「清空画布」。");
+  console.info("[Chating-Painting] PR12：复合指令已就绪。试试「画一个红圆，然后画一个蓝方块」。");
 })();

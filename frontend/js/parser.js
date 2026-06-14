@@ -158,6 +158,20 @@
   }
 
   function parse(text) {
+    if (window.Sequence && window.Sequence.hasCompound(text)) {
+      const parts = window.Sequence.split(text);
+      const commands = [];
+      for (const part of parts) {
+        const cmd = parseSingle(part);
+        if (!cmd) return null;
+        commands.push(cmd);
+      }
+      return { action: "sequence", commands: commands };
+    }
+    return parseSingle(text);
+  }
+
+  function parseSingle(text) {
     const t = normalize(text);
     if (!t) return null;
 
