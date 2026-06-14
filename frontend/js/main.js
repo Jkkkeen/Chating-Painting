@@ -6,7 +6,7 @@
  *   2. 启动遮罩获取一次用户手势后，开启 Web Speech API 持续监听。
  *   3. 识别文本经语音状态机裁决后，交给解析器 → 创建图形 → 重绘 → 语音反馈。
  *
- * 本 PR 支持复合指令：然后 / 再 / 接着 串联的命令会按顺序执行。
+ * 本 PR 支持增强模式：本地规则解析失败时，可选调用 Node LLM 兜底。
  */
 (function () {
   "use strict";
@@ -295,12 +295,25 @@
     voiceMode.announce(clarifier.askAmbiguous(cmd, candidates));
   }
 
-  function executeCommand(text) {
+  async function executeCommand(text) {
     if (clarifier.hasPending()) {
       if (handleClarifierResult(clarifier.handle(text))) return;
     }
 
-    executeParsedCommand(window.Parser.parse(text));
+    const localCommand = window.Parser.parse(text);
+    if (localCommand) {
+      executeParsedCommand(localCommand);
+      return;
+    }
+
+    if (window.LLMFallback && window.LLMFallback.isEnabled()) {
+      showReply("本地解析未命中，正在尝试增强模式…");
+      const remoteCommand = await window.LLMFallback.parse(text);
+      executeParsedCommand(remoteCommand);
+      return;
+    }
+
+    executeParsedCommand(null);
   }
 
   function executeParsedCommand(cmd) {
@@ -557,5 +570,5 @@
   resizeCanvas();
   setStatus("idle", "未启动");
 
-  console.info("[Chating-Painting] PR12：复合指令已就绪。试试「画一个红圆，然后画一个蓝方块」。");
+  console.info("[Chating-Painting] PR13：增强模式 LLM 兜底已接入。默认仍使用本地规则引擎。");
 })();
